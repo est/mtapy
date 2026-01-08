@@ -6,7 +6,9 @@ MTA is used by Xiaomi, OPPO, vivo, OnePlus, Realme, and other Android manufactur
 
 互传联盟（Mutual Transmission Alliance）是由小米、OPPO和vivo于2019年成立的，旨在实现跨品牌(安卓)设备之间的快速文件传输。Android阵营已加入的有：小米、OPPO、vivo、联想、realme、努比亚、海信、魅族、一加、坚果、黑鲨、中兴、ROG、华硕、三星、荣耀
 
-Now your favorite desktop OS joins the alliance! 现在你钟爱的桌面系统也加入联盟！
+Now your favorite desktop OS joins the alliance! 现在你钟爱的桌面操作系统也加入联盟！
+
+Note: this project is vibing and **not ready** for production use. 本项目当前状态：vibe中，还没弄好 🤣
 
 ## Protocol Overview
 
