@@ -108,8 +108,9 @@ class _PeripheralManagerDelegate(NSObject):
                     try:
                         await self._on_write(uid, d)
                         peripheral.respondToRequest_withResult_(req, CBATTErrorSuccess)
-                    except Exception as e:
-                        print(f"GATT write error: {e}")
+                    except Exception:
+                        import traceback
+                        traceback.print_exc()
                         peripheral.respondToRequest_withResult_(req, 1)
                 
                 asyncio.run_coroutine_threadsafe(handle_write(), self._loop)

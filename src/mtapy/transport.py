@@ -120,40 +120,34 @@ class MTAReceiver:
             return b""
 
         async def on_write(uuid: str, value: bytes) -> None:
-            if uuid.lower() == str(CHAR_P2P_UUID).lower():
-                print(f"[BLE] Received P2P credentials from sender.")
-                # Received P2pInfo
-                try:
-                    # Heuristic: Check for JSON start brace '{'
-                    json_start = value.find(b"{")
-                    if json_start == -1:
-                        # No JSON found? Try decoding usually
-                        raw_json = value.decode("utf-8")
-                    else:
-                        if json_start > 0:
-                            print(f"[BLE] ⚠️  Skipping {json_start} preamble bytes: {value[:json_start].hex()}")
-                        
-                        # Slice from where '{' starts
-                        raw_json = value[json_start:].decode("utf-8")
+                # Heuristic: Check for JSON start brace '{'
+                json_start = value.find(b"{")
+                if json_start == -1:
+                    # No JSON found? Try decoding usually
+                    raw_json = value.decode("utf-8")
+                else:
+                    if json_start > 0:
+                        print(f"[BLE] ⚠️  Skipping {json_start} preamble bytes: {value[:json_start].hex()}")
+                    
+                    # Slice from where '{' starts
+                    raw_json = value[json_start:].decode("utf-8")
 
-                    p2p = P2pInfo.from_json(raw_json)
-                    
-                    # Decrypt if key is present
-                    if p2p.key:
-                        cipher = self.crypto.derive_session_cipher(p2p.key)
-                        p2p = P2pInfo(
-                            id=p2p.id,
-                            ssid=cipher.decrypt(p2p.ssid),
-                            psk=cipher.decrypt(p2p.psk),
-                            mac=cipher.decrypt(p2p.mac),
-                            port=p2p.port,
-                            key=None,
-                        )
-                    
-                    if not p2p_received.done():
-                        p2p_received.set_result(p2p)
-                except Exception as e:
-                    print(f"Error parsing P2P info: {e}")
+                p2p = P2pInfo.from_json(raw_json)
+                
+                # Decrypt if key is present
+                if p2p.key:
+                    cipher = self.crypto.derive_session_cipher(p2p.key)
+                    p2p = P2pInfo(
+                        id=p2p.id,
+                        ssid=cipher.decrypt(p2p.ssid),
+                        psk=cipher.decrypt(p2p.psk),
+                        mac=cipher.decrypt(p2p.mac),
+                        port=p2p.port,
+                        key=None,
+                    )
+                
+                if not p2p_received.done():
+                    p2p_received.set_result(p2p)
 
         # 1. Setup GATT Server
         await ble.setup_gatt_server(

@@ -17,3 +17,4 @@ mtapy is a Python implementation of MTA, based on the CatShare project. CatShare
 - target macOS in this version. Extendable to Win/Linux later
 -  Do not introduce too many third party libs.  `bleak` and `websockets` are acceptable.
 - use `python` for testing, not `python3` as it points to system one on my local Mac.
+- prefer let-it-crash during development stage, don't be overly protective with excessive try-except.
