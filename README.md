@@ -8,7 +8,21 @@ MTA is used by Xiaomi, OPPO, vivo, OnePlus, Realme, and other Android manufactur
 
 Now your favorite desktop OS joins the alliance! 现在你钟爱的桌面操作系统也加入联盟！
 
-Note: this project is vibing and **not ready** for production use. 本项目当前状态：vibe中，还没弄好 🤣
+## Progress
+
+vibing in progress, **not ready** for production use. 本项目当前状态：vibe出来了个demo  🤣
+
+`python demo.py --auto-connect`  
+
+适用于macOS。执行上面命令后，在安卓手机上发起文件传输，可能有弹窗要求连接某 DIRECT-XXX 这个WIFI，允许就可以在 received_files 目录收到文件了。
+
+因为额度用完了，所以就先到这儿了，等贤者时间结束，再继续完善。
+
+## ToDo
+
+- [ ] fix "Unknown device" on Android
+- [ ] add an awesome avatar (if possible)
+- [ ] send files *to* Android
 
 ## Protocol Overview
 
