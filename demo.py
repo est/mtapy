@@ -4,21 +4,26 @@ import os
 from pathlib import Path
 import argparse
 import concurrent.futures
+import logging
+
+# Configure logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Add src directory to path so we can import mtapy
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
-try:
-    from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
-except ImportError as e:
-    print(f"Error: {e}")
-    print("Make sure you are running from the project root.")
-    print("Install dependencies: pip install pyobjc-framework-CoreBluetooth bleak cryptography websockets")
-    sys.exit(1)
+from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
 
 async def scan_for_devices(timeout: float = 10.0):
     """Scan for nearby MTA devices."""
-    print(f"\n[SCAN] 🔍 Scanning for {timeout}s...")
+    logger.info(f"[SCAN] 🔍 Scanning for {timeout}s...")
     ble = get_macos_ble_provider()
     found_any = False
 
@@ -26,7 +31,7 @@ async def scan_for_devices(timeout: float = 10.0):
         nonlocal found_any
         found_any = True
         is_5ghz = "5GHz" if device.supports_5ghz else "2.4GHz"
-        print(f"[SCAN] 📱 {device.rssi}dBm | {device.name:<20} | {device.address} | {is_5ghz}")
+        logger.info(f"[SCAN] 📱 {device.rssi}dBm | {device.name:<20} | {device.address} | {is_5ghz}")
 
     try:
         await ble.start_scan(on_device_found, timeout=timeout)
@@ -34,38 +39,38 @@ async def scan_for_devices(timeout: float = 10.0):
         pass # No catch, let it crash
 
     if not found_any:
-        print("[SCAN] ⚠️  No devices found.")
+        logger.warning("[SCAN] ⚠️  No devices found.")
     else:
-        print("[SCAN] ✅ Scan complete.")
+        logger.info("[SCAN] ✅ Scan complete.")
 
 
 async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Listen for incoming file transfers."""
-    print(f"[RECV] 📡 Advertising as '{device_name}' | Waiting for Android...")
+    logger.info(f"[RECV] 📡 Advertising as '{device_name}' | Waiting for Android...")
 
     ble = get_macos_ble_provider()
     output_dir = Path("./received_files")
     output_dir.mkdir(exist_ok=True)
 
     async def on_request(request: SendRequest) -> bool:
-        print(f"[RECV] 📥 {request.sender_name} -> {request.file_name} ({request.file_count} files, {request.total_size} bytes) | Auto-accepting...")
+        logger.info(f"[RECV] 📥 {request.sender_name} -> {request.file_name} ({request.file_count} files, {request.total_size} bytes) | Auto-accepting...")
         return True
 
     async def on_text(text: str):
-        print(f"[TEXT] 💬 {text}")
+        logger.info(f"[TEXT] 💬 {text}")
 
     async def on_p2p(p2p: P2pInfo):
-        print(f"[WIFI] 📶 Connect to SSID: '{p2p.ssid}' | PSK: '{p2p.psk}'")
+        logger.info(f"[WIFI] 📶 Connect to SSID: '{p2p.ssid}' | PSK: '{p2p.psk}'")
         
         if args.auto_connect:
-            print("[WIFI] 🤖 Auto-connecting...")
+            logger.info("[WIFI] 🤖 Auto-connecting...")
             # Run blocking call in executor
             success = await asyncio.get_event_loop().run_in_executor(
                 None, 
                 lambda: connect_to_wifi(p2p.ssid, p2p.psk)
             )
             if success:
-                print("[WIFI] 🚀 Auto-connected! Starting transfer in 2s...")
+                logger.info("[WIFI] 🚀 Auto-connected! Starting transfer in 2s...")
                 await asyncio.sleep(2.0)
                 return
 
@@ -87,20 +92,20 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
     )
     
     if files:
-        print(f"[RECV] ✅ Success! {len(files)} file(s) received.")
+        logger.info(f"[RECV] ✅ Success! {len(files)} file(s) received.")
         for f in files:
-            print(f"[FILE] 💾 {f.name} ({f.size} bytes) -> {f.path}")
+            logger.info(f"[FILE] 💾 {f.name} ({f.size} bytes) -> {f.path}")
     else:
-        print("[RECV] ⏹️  Session ended.")
+        logger.info("[RECV] ⏹️  Session ended.")
 
 
 
 
 async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Run both scanner and receiver concurrently."""
-    print("=" * 60)
-    print(f"  MTAPY DEMO | Name: {device_name} | Timeout: {timeout}s")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info(f"  MTAPY DEMO | Name: {device_name} | Timeout: {timeout}s")
+    logger.info("=" * 60)
 
     # Start the receiver (Advertiser + GATT Server)
     receiver_task = asyncio.create_task(listen_for_transfers(device_name, timeout))
@@ -127,9 +132,9 @@ async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 60
             pass
 
 if __name__ == "__main__":
-    print("\n" + "=" * 60)
-    print("  MTAPY DEMO STARTING...")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("  MTAPY DEMO STARTING...")
+    logger.info("=" * 60)
     
     # Setup argparse
     from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
@@ -151,10 +156,10 @@ if __name__ == "__main__":
             from PyObjCTools import AppHelper
             use_runloop = True
         except ImportError:
-            print("Warning: PyObjCTools not found. Callbacks might hang.")
+            logger.warning("Warning: PyObjCTools not found. Callbacks might hang.")
     
     if use_runloop:
-        print("DEBUG: Running asyncio in background thread + Main Thread RunLoop")
+        logger.debug("DEBUG: Running asyncio in background thread + Main Thread RunLoop")
         
         loop = asyncio.new_event_loop()
         # Use a list to store exception, avoiding nonlocal issue in some contexts
@@ -172,7 +177,7 @@ if __name__ == "__main__":
                 # Store exception for re-raising in main thread
                 bg_exception_container.append(e)
                 # Print immediately so user sees it even if main loop is stuck
-                print(f"\n[ERROR] Background thread crashed: {e}")
+                logger.error(f"[ERROR] Background thread crashed: {e}")
             finally:
                 # Stop the main loop when async work is done (e.g. timeout or crash)
                 AppHelper.stopEventLoop()
@@ -183,7 +188,7 @@ if __name__ == "__main__":
         # Install a Python signal handler to catch Ctrl+C ensuring AppHelper stops
         import signal
         def handle_sigint(signum, frame):
-            print("\n[SIGINT] Stopping...", file=sys.stderr)
+            logger.warning("\n[SIGINT] Stopping...")
             
             # Cancel all tasks and stop the background loop first
             def cancel_and_stop():
@@ -205,11 +210,11 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            print(f"[MAIN] RunLoop error: {e}")
+            logger.error(f"[MAIN] RunLoop error: {e}")
 
         # Check for background exception and re-raise if present (for pdb)
         if bg_exception_container:
-            print("\nRe-raising background exception for pdb...")
+            logger.error("\nRe-raising background exception for pdb...")
             raise bg_exception_container[0]
 
     else:
@@ -217,4 +222,4 @@ if __name__ == "__main__":
             # Standard mode (may hang on macOS without queue fix)
             asyncio.run(run_combined(device_name=args.name, timeout=args.timeout))
         except KeyboardInterrupt:
-            print("\n\nStopped by user.")
+            logger.warning("\n\nStopped by user.")
