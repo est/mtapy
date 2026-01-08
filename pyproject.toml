@@ -34,6 +34,9 @@ dependencies = [
 ble = [
     "bleak>=0.21.0",
 ]
+macos = [
+    "pyobjc-framework-CoreBluetooth>=9.0",
+]
 all = [
     "bleak>=0.21.0",
 ]
