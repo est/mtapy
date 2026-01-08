@@ -11,14 +11,16 @@ Requires:
 import asyncio
 from typing import Callable, Awaitable, Optional
 import sys
+import objc
 
 if sys.platform != "darwin":
     raise ImportError("This module is only for macOS")
 
 # CoreBluetooth imports via pyobjc
 try:
-    from Foundation import CBUUID, NSData, NSObject, NSUUID
+    from Foundation import NSData, NSObject, NSUUID
     from CoreBluetooth import (
+        CBUUID,
         CBPeripheralManager,
         CBPeripheralManagerStateUnknown,
         CBPeripheralManagerStatePoweredOn,
@@ -51,7 +53,7 @@ class _PeripheralManagerDelegate(NSObject):
     """
 
     def initWithLoop_onRead_onWrite_(self, loop, on_read, on_write):
-        self = super().init()
+        self = objc.super(_PeripheralManagerDelegate, self).init()
         if self is None:
             return None
         self._loop = loop

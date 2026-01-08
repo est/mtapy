@@ -26,13 +26,28 @@ def get_ble_provider() -> BLEProvider:
     
     if sys.platform == "darwin":
         try:
-            from .macos import CoreBluetoothBLEProvider
-            return CoreBluetoothBLEProvider()
+            return get_macos_ble_provider()
         except ImportError:
             pass  # pyobjc not installed
     
+    return get_bleak_ble_provider()
+
+
+def get_bleak_ble_provider() -> BLEProvider:
+    """Get the Bleak-based BLE provider (client-only)."""
     from .bleak_driver import BleakBLEProvider
     return BleakBLEProvider()
 
 
-__all__ = ["get_ble_provider", "BLEProvider"]
+def get_macos_ble_provider() -> BLEProvider:
+    """Get the macOS-specific BLE provider (GATT server support)."""
+    from .macos import CoreBluetoothBLEProvider
+    return CoreBluetoothBLEProvider()
+
+
+__all__ = [
+    "get_ble_provider",
+    "get_bleak_ble_provider",
+    "get_macos_ble_provider",
+    "BLEProvider",
+]

@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from mtapy import get_ble_provider, MTAReceiver, SendRequest, P2pInfo
+    from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
 except ImportError as e:
     print(f"Error: {e}")
     print("Make sure you are running from the project root.")
@@ -37,17 +37,8 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
     print("-" * 60)
 
     # Check if macOS GATT server is available
-    try:
-        ble = get_ble_provider()
-        if type(ble).__name__ == "BleakBLEProvider":
-            print("\n❌ ERROR: CoreBluetooth driver not found.")
-            print("   To enable receiver mode on macOS, you MUST install:")
-            print("   pip install pyobjc-framework-CoreBluetooth")
-            return
-    except Exception as e:
-        print(f"❌ Failed to initialize BLE: {e}")
-        return
-
+    
+    ble = get_macos_ble_provider()
     output_dir = Path("./received_files")
     output_dir.mkdir(exist_ok=True)
 

@@ -122,6 +122,7 @@ __all__ = [
     # Providers
     "get_crypto_provider",
     "get_ble_provider",
+    "get_macos_ble_provider",
     "get_wifi_p2p_provider",
 ]
 
@@ -133,9 +134,15 @@ def get_crypto_provider() -> CryptoProvider:
 
 
 def get_ble_provider() -> BLEProvider:
-    """Get the default BLE provider (requires bleak)."""
-    from .ble import get_default_ble_provider
-    return get_default_ble_provider()
+    """Get the best BLE provider for the current platform."""
+    from .drivers import get_ble_provider
+    return get_ble_provider()
+
+
+def get_macos_ble_provider() -> BLEProvider:
+    """Get the macOS-specific BLE provider (requires pyobjc)."""
+    from .drivers.macos import CoreBluetoothBLEProvider
+    return CoreBluetoothBLEProvider()
 
 
 def get_wifi_p2p_provider() -> WiFiP2PProvider:
