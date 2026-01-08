@@ -1,18 +1,8 @@
-#!/usr/bin/env python3
-"""
-mtapy macOS Receiver Demo
-
-This script allows your Mac to receive files from Android devices using the 
-Mutual Transmission Alliance (MTA) protocol (Fast Share / Share to PC).
-
-Requirements:
-    pip install pyobjc-framework-CoreBluetooth bleak cryptography websockets
-"""
-
 import asyncio
 import sys
 import os
 from pathlib import Path
+import argparse
 
 # Add src directory to path so we can import mtapy
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
@@ -25,6 +15,36 @@ except ImportError as e:
     print("Install dependencies: pip install pyobjc-framework-CoreBluetooth bleak cryptography websockets")
     sys.exit(1)
 
+async def scan_for_devices(timeout: float = 10.0):
+    """Scan for nearby MTA devices."""
+    print("=" * 60)
+    print("  MTA DEVICE SCANNER")
+    print("=" * 60)
+    print(f"\nScanning for nearby devices for {timeout} seconds...\n")
+
+    ble = get_macos_ble_provider()
+    
+    found_any = False
+
+    async def on_device_found(device):
+        nonlocal found_any
+        found_any = True
+        print(f"FOUND: {device.name}")
+        print(f"  Address: {device.address}")
+        print(f"  RSSI:    {device.rssi} dBm")
+        print(f"  5GHz:    {'Yes' if device.supports_5ghz else 'No'}")
+        print("-" * 30)
+
+    try:
+        await ble.start_scan(on_device_found, timeout=timeout)
+    except Exception as e:
+        print(f"\n❌ Scan Error: {e}")
+
+    if not found_any:
+        print("\nNo MTA devices found. Make sure discovery is enabled on the target device.")
+    else:
+        print("\nScan complete.")
+
 
 async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Listen for incoming file transfers."""
@@ -36,8 +56,6 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
     print(f"3. Select this Mac from the device list.")
     print("-" * 60)
 
-    # Check if macOS GATT server is available
-    
     ble = get_macos_ble_provider()
     output_dir = Path("./received_files")
     output_dir.mkdir(exist_ok=True)
@@ -104,8 +122,17 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="mtapy macOS Demo")
+    parser.add_argument("--scan", action="store_true", help="Scan for nearby MTA devices instead of listening")
+    parser.add_argument("--name", type=str, default="MacBook Pro", help="Name to display when receiving")
+    parser.add_argument("--timeout", type=float, default=600.0, help="Timeout for the operation")
+    
+    args = parser.parse_args()
+
     try:
-        # You can customize the displayed device name here
-        asyncio.run(listen_for_transfers(device_name="MacBook Pro"))
+        if args.scan:
+            asyncio.run(scan_for_devices(timeout=10.0))
+        else:
+            asyncio.run(listen_for_transfers(device_name=args.name, timeout=args.timeout))
     except KeyboardInterrupt:
         print("\n\nStopped by user.")

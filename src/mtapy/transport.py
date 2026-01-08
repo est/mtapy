@@ -1,10 +1,4 @@
-"""
-Asyncio transport layer for MTA protocol.
-
-Provides full sender and receiver implementations using asyncio,
-websockets for WebSocket connections, and urllib for HTTP downloads.
-"""
-
+from __future__ import annotations
 import asyncio
 import ssl
 import io
@@ -12,8 +6,7 @@ import zipfile
 import urllib.request
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List, Callable, Awaitable
-import sys
+from typing import Optional, List, Callable, Awaitable, AsyncIterator
 
 from .models import P2pInfo, DeviceInfo, SendRequest
 from .protocol import WSMessage
@@ -22,13 +15,10 @@ from .receiver import (
     SendRequestReceived, TextReceived,
     VersionNegotiated, StatusReceived,
 )
-from .sender import HandshakeStarted # Just to keep at least one import if needed, but usually transport uses it
 from .interfaces import CryptoProvider, BLEProvider, WiFiP2PProvider
+from .constants import ADV_SERVICE_UUID, SERVICE_UUID, CHAR_STATUS_UUID, CHAR_P2P_UUID
 from .crypto import get_default_crypto_provider
 from .ble import get_default_ble_provider
-from .constants import (
-    ADV_SERVICE_UUID, SERVICE_UUID, CHAR_STATUS_UUID, CHAR_P2P_UUID,
-)
 
 
 @dataclass
@@ -119,6 +109,7 @@ class MTAReceiver:
         # Setup GATT callbacks
         async def on_read(uuid: str) -> bytes:
             if uuid.lower() == str(CHAR_STATUS_UUID).lower():
+                print(f"\n[BLE] A device is probing our status...")
                 # Return DeviceInfo with our public key
                 info = DeviceInfo(
                     state=0,
@@ -130,6 +121,7 @@ class MTAReceiver:
 
         async def on_write(uuid: str, value: bytes) -> None:
             if uuid.lower() == str(CHAR_P2P_UUID).lower():
+                print(f"[BLE] Received P2P credentials from sender.")
                 # Received P2pInfo
                 try:
                     raw_json = value.decode("utf-8")
