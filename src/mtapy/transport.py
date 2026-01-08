@@ -7,6 +7,9 @@ import urllib.request
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, List, Callable, Awaitable, AsyncIterator
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import P2pInfo, DeviceInfo, SendRequest
 from .protocol import WSMessage
@@ -109,7 +112,7 @@ class MTAReceiver:
         # Setup GATT callbacks
         async def on_read(uuid: str) -> bytes:
             if uuid.lower() == str(CHAR_STATUS_UUID).lower():
-                print(f"\n[BLE] A device is probing our status...")
+                logger.info(f"[BLE] A device is probing our status...")
                 # Return DeviceInfo with our public key
                 info = DeviceInfo(
                     state=0,
@@ -127,7 +130,7 @@ class MTAReceiver:
                     raw_json = value.decode("utf-8")
                 else:
                     if json_start > 0:
-                        print(f"[BLE] ⚠️  Skipping {json_start} preamble bytes: {value[:json_start].hex()}")
+                        logger.warning(f"[BLE] ⚠️  Skipping {json_start} preamble bytes: {value[:json_start].hex()}")
                     
                     # Slice from where '{' starts
                     raw_json = value[json_start:].decode("utf-8")
@@ -166,12 +169,12 @@ class MTAReceiver:
             service_uuid=str(ADV_SERVICE_UUID),
         )
         
-        print(f"Receiver '{device_name}' is listening...")
+        logger.info(f"Receiver '{device_name}' is listening...")
         
         try:
             # 3. Wait for P2P info
             p2p_info = await asyncio.wait_for(p2p_received, timeout=timeout)
-            print(f"Received P2P info: SSID={p2p_info.ssid}, MAC={p2p_info.mac}")
+            logger.info(f"Received P2P info: SSID={p2p_info.ssid}, MAC={p2p_info.mac}")
             
             # 4. Stop advertising while transferring
             await ble.stop_advertising()

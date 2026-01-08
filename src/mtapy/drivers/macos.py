@@ -9,9 +9,12 @@ Requires:
 """
 
 import asyncio
+import logging
 from typing import Callable, Awaitable, Optional
 import sys
 import objc
+
+logger = logging.getLogger(__name__)
 
 if sys.platform != "darwin":
     raise ImportError("This module is only for macOS")
@@ -67,13 +70,13 @@ class _PeripheralManagerDelegate(NSObject):
     # Called when CBPeripheralManager state changes
     def peripheralManagerDidUpdateState_(self, peripheral):
         state = peripheral.state()
-        print(f"DEBUG: Peripheral manager state changed: {state}")
+        logger.debug(f"Peripheral manager state changed: {state}")
         if state == CBPeripheralManagerStatePoweredOn:
             self._powered_on = True
-            print("DEBUG: Bluetooth is POWERED ON")
+            logger.debug("Bluetooth is POWERED ON")
         else:
             self._powered_on = False
-            print(f"DEBUG: Bluetooth is NOT powered on (state: {state})")
+            logger.debug(f"Bluetooth is NOT powered on (state: {state})")
         self._loop.call_soon_threadsafe(self._state_event.set)
 
     # Called when a central requests to read a characteristic
@@ -88,7 +91,7 @@ class _PeripheralManagerDelegate(NSObject):
                     request.setValue_(NSData.dataWithBytes_length_(data, len(data)))
                     peripheral.respondToRequest_withResult_(request, CBATTErrorSuccess)
                 except Exception as e:
-                    print(f"GATT read error: {e}")
+                    logger.error(f"GATT read error: {e}")
                     peripheral.respondToRequest_withResult_(request, 1)  # Error
             
             asyncio.run_coroutine_threadsafe(handle_read(), self._loop)
@@ -120,16 +123,16 @@ class _PeripheralManagerDelegate(NSObject):
     # Called when service was added
     def peripheralManager_didAddService_error_(self, peripheral, service, error):
         if error:
-            print(f"DEBUG: Failed to add service: {error}")
+            logger.debug(f"Failed to add service: {error}")
         else:
-            print(f"DEBUG: Service added successfully: {service.UUID().UUIDString()}")
+            logger.debug(f"Service added successfully: {service.UUID().UUIDString()}")
 
     # Called when advertising started
     def peripheralManagerDidStartAdvertising_error_(self, peripheral, error):
         if error:
-            print(f"DEBUG: Failed to start advertising: {error}")
+            logger.debug(f"Failed to start advertising: {error}")
         else:
-            print("DEBUG: Started advertising successfully")
+            logger.debug("Started advertising successfully")
 
 
 class CoreBluetoothBLEProvider(BLEProvider):
@@ -236,7 +239,7 @@ class CoreBluetoothBLEProvider(BLEProvider):
             }
         }
         
-        print(f"DEBUG: Starting advertising with name='{name}' and MTA service data")
+        logger.debug(f"Starting advertising with name='{name}' and MTA service data")
         self._peripheral_manager.startAdvertising_(ad_data)
         self._advertising = True
 
@@ -273,7 +276,7 @@ class CoreBluetoothBLEProvider(BLEProvider):
         )
         
         # Create peripheral manager
-        print("DEBUG: Initializing CBPeripheralManager...")
+        logger.debug("Initializing CBPeripheralManager...")
         
         # Try to get a background queue to avoid blocking the main thread
         # Note: On macOS with asyncio, avoiding the main thread hang requires
@@ -281,14 +284,14 @@ class CoreBluetoothBLEProvider(BLEProvider):
         # the asyncio loop in a background thread (implemented in demo.py).
         # We fallback to None (Main Queue) here.
         queue = None
-        print("DEBUG: Using main dispatch queue (requires RunLoop in main thread)")
+        logger.debug("Using main dispatch queue (requires RunLoop in main thread)")
 
         self._peripheral_manager = CBPeripheralManager.alloc().initWithDelegate_queue_(
             self._delegate, queue
         )
         
         # Wait for Bluetooth to power on
-        print("DEBUG: Waiting for Bluetooth to power on...")
+        logger.debug("Waiting for Bluetooth to power on...")
         await self._delegate._state_event.wait()
         if not self._delegate._powered_on:
             raise RuntimeError("Bluetooth is not powered on")

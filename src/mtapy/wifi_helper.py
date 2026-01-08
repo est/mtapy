@@ -3,6 +3,9 @@ import shutil
 import time
 import sys
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_wifi_interface() -> str:
     """
@@ -33,7 +36,7 @@ def get_wifi_interface() -> str:
                         return match.group(1)
                         
     except Exception as e:
-        print(f"[WIFI] ⚠️  Could not detect Wi-Fi interface: {e}")
+        logger.warning(f"[WIFI] ⚠️  Could not detect Wi-Fi interface: {e}")
         
     return "en0" # Default fallback
 
@@ -44,11 +47,11 @@ def connect_to_wifi(ssid: str, password: str) -> bool:
     Returns True if successful.
     """
     if sys.platform != "darwin":
-        print("[WIFI] ❌ Auto-connect only supported on macOS")
+        logger.error("[WIFI] ❌ Auto-connect only supported on macOS")
         return False
 
     interface = get_wifi_interface()
-    print(f"[WIFI] 🔄 Connecting to '{ssid}' on {interface}...")
+    logger.info(f"[WIFI] 🔄 Connecting to '{ssid}' on {interface}...")
     
     try:
         # networksetup -setairportnetwork <device> <network> <password>
@@ -63,17 +66,17 @@ def connect_to_wifi(ssid: str, password: str) -> bool:
         
         # Check for known failure strings
         if "Could not find network" in output or "Error" in output:
-            print(f"[WIFI] ❌ {output.strip()}")
+            logger.error(f"[WIFI] ❌ {output.strip()}")
             return False
             
         if result.returncode != 0:
-            print(f"[WIFI] ❌ Command failed: {output.strip()}")
+            logger.error(f"[WIFI] ❌ Command failed: {output.strip()}")
             return False
 
-        print(f"[WIFI] ✅ Connected to '{ssid}'")
+        logger.info(f"[WIFI] ✅ Connected to '{ssid}'")
         # Give it a moment to acquire IP
         time.sleep(2.0)
         return True
     except Exception as e:
-        print(f"[WIFI] ❌ Failed to connect: {e}")
+        logger.error(f"[WIFI] ❌ Failed to connect: {e}")
         return False
