@@ -181,7 +181,8 @@ class MTAReceiver:
                 await on_p2p(p2p_info)
             
             # 5. Connect and receive
-            return await self.receive_from(p2p_info.mac, p2p_info.port)
+            # The host is the P2P Group Owner (Android device), which is usually 192.168.49.1
+            return await self.receive_from("192.168.49.1", p2p_info.port)
             
         finally:
             await ble.stop_advertising()

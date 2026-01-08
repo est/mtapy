@@ -19,3 +19,4 @@ mtapy is a Python implementation of MTA, based on the CatShare project. CatShare
 - use `python` for testing, not `python3` as it points to system one on my local Mac.
 - prefer let-it-crash during development stage, don't be overly protective with excessive try-except.
 - make a `demo.py`.  macOS scan for BLE devices and show the logs (make logs be compact), the device connect to the macOS and transfer a file.
+- pay attention to Android/Java crypto differences

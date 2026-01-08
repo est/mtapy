@@ -29,8 +29,8 @@ async def scan_for_devices(timeout: float = 10.0):
 
     try:
         await ble.start_scan(on_device_found, timeout=timeout)
-    except Exception as e:
-        print(f"[SCAN] ❌ Error: {e}")
+    finally:
+        pass # No catch, let it crash
 
     if not found_any:
         print("[SCAN] ⚠️  No devices found.")
@@ -55,6 +55,19 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
 
     async def on_p2p(p2p: P2pInfo):
         print(f"[WIFI] 📶 Connect to SSID: '{p2p.ssid}' | PSK: '{p2p.psk}'")
+        
+        if args.auto_connect:
+            print("[WIFI] 🤖 Auto-connecting...")
+            # Run blocking call in executor
+            success = await asyncio.get_event_loop().run_in_executor(
+                None, 
+                lambda: connect_to_wifi(p2p.ssid, p2p.psk)
+            )
+            if success:
+                print("[WIFI] 🚀 Auto-connected! Starting transfer in 2s...")
+                await asyncio.sleep(2.0)
+                return
+
         def wait_input():
             input("[WIFI] ⌨️  Press ENTER once connected to start download...")
         await asyncio.get_event_loop().run_in_executor(None, wait_input)
@@ -65,24 +78,21 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
         on_text=on_text,
     )
 
-    try:
-        files = await receiver.listen(
-            device_name=device_name, 
-            on_p2p=on_p2p,
-            timeout=timeout
-        )
-        
-        if files:
-            print(f"[RECV] ✅ Success! {len(files)} file(s) received.")
-            for f in files:
-                print(f"[FILE] 💾 {f.name} ({f.size} bytes) -> {f.path}")
-        else:
-            print("[RECV] ⏹️  Session ended.")
-            
-    except asyncio.TimeoutError:
-        print("[RECV] ⏱️  Timed out.")
-    except Exception as e:
-        print(f"[RECV] ❌ Error: {e}")
+    # Note: Removed try-except to expose errors as requested
+    files = await receiver.listen(
+        device_name=device_name, 
+        on_p2p=on_p2p,
+        timeout=timeout
+    )
+    
+    if files:
+        print(f"[RECV] ✅ Success! {len(files)} file(s) received.")
+        for f in files:
+            print(f"[FILE] 💾 {f.name} ({f.size} bytes) -> {f.path}")
+    else:
+        print("[RECV] ⏹️  Session ended.")
+
+
 
 
 async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
@@ -97,15 +107,9 @@ async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 60
     # Start the scanner loop
     async def scanner_loop():
         while True:
-            try:
-                # Scan for 10 seconds, then wait 5 seconds
-                await scan_for_devices(timeout=10.0)
-                await asyncio.sleep(5.0)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                print(f"[SCAN] ❌ Scanner loop error: {e}")
-                await asyncio.sleep(5.0)
+            # Scan for 10 seconds, then wait 5 seconds
+            await scan_for_devices(timeout=10.0)
+            await asyncio.sleep(5.0)
 
     scanner_task = asyncio.create_task(scanner_loop())
 
@@ -127,9 +131,13 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # Setup argparse
+    from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
+    from mtapy.wifi_helper import connect_to_wifi
+
     parser = argparse.ArgumentParser(description="mtapy macOS Demo")
     parser.add_argument("--name", type=str, default="MacBook Pro", help="Name to display when receiving")
     parser.add_argument("--timeout", type=float, default=3600.0, help="Timeout for the operation (default 1 hour)")
+    parser.add_argument("--auto-connect", action="store_true", help="Automatically connect to P2P WiFi (macOS only)")
     args = parser.parse_args()
 
     # On macOS, we SHOULD run the asyncio loop in a background thread 
