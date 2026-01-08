@@ -17,78 +17,46 @@ except ImportError as e:
 
 async def scan_for_devices(timeout: float = 10.0):
     """Scan for nearby MTA devices."""
-    print("=" * 60)
-    print("  MTA DEVICE SCANNER")
-    print("=" * 60)
-    print(f"\nScanning for nearby devices for {timeout} seconds...\n")
-
+    print(f"\n[SCAN] 🔍 Scanning for {timeout}s...")
     ble = get_macos_ble_provider()
-    
     found_any = False
 
     async def on_device_found(device):
         nonlocal found_any
         found_any = True
-        print(f"FOUND: {device.name}")
-        print(f"  Address: {device.address}")
-        print(f"  RSSI:    {device.rssi} dBm")
-        print(f"  5GHz:    {'Yes' if device.supports_5ghz else 'No'}")
-        print("-" * 30)
+        is_5ghz = "5GHz" if device.supports_5ghz else "2.4GHz"
+        print(f"[SCAN] 📱 {device.rssi}dBm | {device.name:<20} | {device.address} | {is_5ghz}")
 
     try:
         await ble.start_scan(on_device_found, timeout=timeout)
     except Exception as e:
-        print(f"\n❌ Scan Error: {e}")
+        print(f"[SCAN] ❌ Error: {e}")
 
     if not found_any:
-        print("\nNo MTA devices found. Make sure discovery is enabled on the target device.")
+        print("[SCAN] ⚠️  No devices found.")
     else:
-        print("\nScan complete.")
+        print("[SCAN] ✅ Scan complete.")
 
 
 async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Listen for incoming file transfers."""
-    print("=" * 60)
-    print("  MTA FILE RECEIVER (Android to Mac)")
-    print("=" * 60)
-    print(f"\n1. Advertising as: '{device_name}'")
-    print(f"2. Open 'Fast Share' or 'MTA Share' on your Android phone.")
-    print(f"3. Select this Mac from the device list.")
-    print("-" * 60)
+    print(f"[RECV] 📡 Advertising as '{device_name}' | Waiting for Android...")
 
     ble = get_macos_ble_provider()
     output_dir = Path("./received_files")
     output_dir.mkdir(exist_ok=True)
 
     async def on_request(request: SendRequest) -> bool:
-        print(f"\n[Incoming Transfer Request]")
-        print(f"  From:  {request.sender_name}")
-        print(f"  File:  {request.file_name}")
-        print(f"  Total: {request.file_count} file(s), {request.total_size} bytes")
-        print("  → Auto-accepting...")
+        print(f"[RECV] 📥 {request.sender_name} -> {request.file_name} ({request.file_count} files, {request.total_size} bytes) | Auto-accepting...")
         return True
 
     async def on_text(text: str):
-        print(f"\n[Text Received]")
-        print(f"  Content: {text}")
+        print(f"[TEXT] 💬 {text}")
 
     async def on_p2p(p2p: P2pInfo):
-        print("\n" + "!" * 60)
-        print("  STEP: WIFI CONNECTION REQUIRED")
-        print("!" * 60)
-        print(f"  The sender has created a temporary hotspot:")
-        print(f"  SSID: {p2p.ssid}")
-        print(f"  PSK:  {p2p.psk}")
-        print("-" * 60)
-        print("  HOW TO CONNECT:")
-        print("  1. Click the WiFi icon in your Mac's menu bar.")
-        print(f"  2. Select and connect to network: '{p2p.ssid}'")
-        print(f"  3. Enter password: {p2p.psk}")
-        print("-" * 60)
-        
+        print(f"[WIFI] 📶 Connect to SSID: '{p2p.ssid}' | PSK: '{p2p.psk}'")
         def wait_input():
-            input("\n  >>> PRESS ENTER ONCE CONNECTED TO START FILE DOWNLOAD...")
-            
+            input("[WIFI] ⌨️  Press ENTER once connected to start download...")
         await asyncio.get_event_loop().run_in_executor(None, wait_input)
 
     receiver = MTAReceiver(
@@ -96,8 +64,6 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
         on_request=on_request,
         on_text=on_text,
     )
-
-    print("\nWaiting for connection...")
 
     try:
         files = await receiver.listen(
@@ -107,28 +73,23 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
         )
         
         if files:
-            print(f"\n✅ SUCCESS! Received {len(files)} file(s):")
+            print(f"[RECV] ✅ Success! {len(files)} file(s) received.")
             for f in files:
-                print(f"   {f.name} ({f.size} bytes) → {f.path}")
+                print(f"[FILE] 💾 {f.name} ({f.size} bytes) -> {f.path}")
         else:
-            print("\nSession ended (text share or cancelled).")
+            print("[RECV] ⏹️  Session ended.")
             
     except asyncio.TimeoutError:
-        print("\n⏱️ Timed out waiting for sender. Make sure Bluetooth is on.")
+        print("[RECV] ⏱️  Timed out.")
     except Exception as e:
-        print(f"\n❌ Unexpected Error: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"[RECV] ❌ Error: {e}")
 
 
 async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Run both scanner and receiver concurrently."""
     print("=" * 60)
-    print("  MTAPY DEMO - SCANNER & RECEIVER")
+    print(f"  MTAPY DEMO | Name: {device_name} | Timeout: {timeout}s")
     print("=" * 60)
-    print(f"1. Advertising as: '{device_name}' (Discoverable by Android)")
-    print("2. Scanning for nearby MTA devices...")
-    print("-" * 60)
 
     # Start the receiver (Advertiser + GATT Server)
     receiver_task = asyncio.create_task(listen_for_transfers(device_name, timeout))
@@ -143,7 +104,7 @@ async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 60
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Scanner error: {e}")
+                print(f"[SCAN] ❌ Scanner loop error: {e}")
                 await asyncio.sleep(5.0)
 
     scanner_task = asyncio.create_task(scanner_loop())

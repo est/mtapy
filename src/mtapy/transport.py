@@ -124,7 +124,18 @@ class MTAReceiver:
                 print(f"[BLE] Received P2P credentials from sender.")
                 # Received P2pInfo
                 try:
-                    raw_json = value.decode("utf-8")
+                    # Heuristic: Check for JSON start brace '{'
+                    json_start = value.find(b"{")
+                    if json_start == -1:
+                        # No JSON found? Try decoding usually
+                        raw_json = value.decode("utf-8")
+                    else:
+                        if json_start > 0:
+                            print(f"[BLE] ⚠️  Skipping {json_start} preamble bytes: {value[:json_start].hex()}")
+                        
+                        # Slice from where '{' starts
+                        raw_json = value[json_start:].decode("utf-8")
+
                     p2p = P2pInfo.from_json(raw_json)
                     
                     # Decrypt if key is present
