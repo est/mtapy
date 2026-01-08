@@ -27,17 +27,14 @@ classifiers = [
 
 dependencies = [
     "websockets>=12.0",
+    "cryptography>=41.0.0",
 ]
 
 [project.optional-dependencies]
-crypto = [
-    "cryptography>=41.0.0",
-]
 ble = [
     "bleak>=0.21.0",
 ]
 all = [
-    "cryptography>=41.0.0",
     "bleak>=0.21.0",
 ]
 dev = [
@@ -50,7 +47,7 @@ Homepage = "https://github.com/est/mtapy"
 Repository = "https://github.com/est/mtapy"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mtapy"]
+packages = ["src/mtapy"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

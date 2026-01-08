@@ -7,24 +7,22 @@ websockets for WebSocket connections, and urllib for HTTP downloads.
 
 import asyncio
 import ssl
-import json
 import io
 import zipfile
 import urllib.request
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List, Callable, Awaitable, BinaryIO, AsyncIterator
-import tempfile
-import os
+from typing import Optional, List, Callable, Awaitable
+import sys
 
 from .models import P2pInfo, DeviceInfo, SendRequest
 from .protocol import WSMessage
 from .receiver import (
-    ReceiverProtocol, ReceiverState, 
-    SendRequestReceived, TextReceived, TransferAccepted,
+    ReceiverProtocol, 
+    SendRequestReceived, TextReceived,
     VersionNegotiated, StatusReceived,
 )
-from .sender import SenderProtocol, SenderState, FileSpec
+from .sender import HandshakeStarted # Just to keep at least one import if needed, but usually transport uses it
 from .interfaces import CryptoProvider, BLEProvider, WiFiP2PProvider
 from .crypto import get_default_crypto_provider
 from .ble import get_default_ble_provider

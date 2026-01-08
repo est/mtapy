@@ -14,8 +14,8 @@ import sys
 import os
 from pathlib import Path
 
-# Add current directory to path so we can import mtapy
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add src directory to path so we can import mtapy
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
 try:
     from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
