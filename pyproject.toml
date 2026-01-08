@@ -50,7 +50,7 @@ Homepage = "https://github.com/est/mtapy"
 Repository = "https://github.com/est/mtapy"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mtapy"]
+packages = ["src/mtapy"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
