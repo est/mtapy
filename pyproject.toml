@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mtapy"
+version = "0.1.0"
+description = "MTA (互传联盟) file transfer protocol for Python3"
+readme = "README.md"
+license = "GPL-3.0"
+requires-python = ">=3.9"
+authors = [
+    { name = "est", email = "electronixtar@gmail.com" },
+]
+keywords = ["mta", "file-transfer", "xiaomi", "android"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: File Sharing",
+]
+
+dependencies = [
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+crypto = [
+    "cryptography>=41.0.0",
+]
+ble = [
+    "bleak>=0.21.0",
+]
+all = [
+    "cryptography>=41.0.0",
+    "bleak>=0.21.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/est/mtapy"
+Repository = "https://github.com/est/mtapy"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mtapy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
