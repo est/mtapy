@@ -3,6 +3,7 @@ import sys
 import os
 from pathlib import Path
 import argparse
+import concurrent.futures
 
 # Add src directory to path so we can import mtapy
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
@@ -183,14 +184,17 @@ if __name__ == "__main__":
         import signal
         def handle_sigint(signum, frame):
             print("\n[SIGINT] Stopping...", file=sys.stderr)
-            AppHelper.stopEventLoop()
             
-            # Cancel all tasks on the background loop to unblock run_until_complete
-            def cancel_all():
+            # Cancel all tasks and stop the background loop first
+            def cancel_and_stop():
                 for task in asyncio.all_tasks(loop):
                     task.cancel()
+                loop.stop()
             
-            loop.call_soon_threadsafe(cancel_all)
+            loop.call_soon_threadsafe(cancel_and_stop)
+            
+            # Stop the main thread's event loop
+            AppHelper.stopEventLoop()
             
         signal.signal(signal.SIGINT, handle_sigint)
 
