@@ -23,6 +23,22 @@ vibing in progress, **not ready** for production use. 本项目当前状态：vi
 - [ ] fix "Unknown device" on Android
 - [ ] add an awesome avatar (if possible)
 - [ ] send files *to* Android
+- [ ] auto delete WIF Direct
+```
+security default-keychain -s tempwifi.keychain
+security unlock-keychain -p temp tempwifi.keychain
+
+sudo networksetup -setairportnetwork en0 "SSID" "PASSWORD"
+
+# ... use network ...
+
+# cleanup
+sudo networksetup -removepreferredwirelessnetwork en0 "SSID"
+security delete-keychain tempwifi.keychain
+security default-keychain -s login.keychain
+```
+- [ ] useless 5GHz
+
 
 ## Protocol Overview
 

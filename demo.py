@@ -33,12 +33,9 @@ async def scan_for_devices(timeout: float = 10.0):
         nonlocal found_any
         found_any = True
         is_5ghz = "5GHz" if device.supports_5ghz else "2.4GHz"
-        logger.info("[SCAN] 📱 %sdBm | %-20s | %s | %s", device.rssi, device.name, device.address, is_5ghz)
+        logger.info("[SCAN] 📱 %sdBm | %s | %s | %-20s ", device.rssi, is_5ghz, device.address, device.name)
 
-    try:
-        await ble.start_scan(on_device_found, timeout=timeout)
-    finally:
-        pass # No catch, let it crash
+    await ble.start_scan(on_device_found, timeout=timeout)
 
     if not found_any:
         logger.warning("[SCAN] ⚠️  No devices found.")
@@ -105,9 +102,7 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
 
 async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Run both scanner and receiver concurrently."""
-    logger.info("=" * 60)
     logger.info("  MTAPY DEMO | Name: %s | Timeout: %ss", device_name, timeout)
-    logger.info("=" * 60)
 
     # Start the receiver (Advertiser + GATT Server)
     receiver_task = asyncio.create_task(listen_for_transfers(device_name, timeout))
@@ -117,7 +112,7 @@ async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 60
         while True:
             # Scan for 10 seconds, then wait 5 seconds
             await scan_for_devices(timeout=10.0)
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(0.5)
 
     scanner_task = asyncio.create_task(scanner_loop())
 
@@ -134,9 +129,7 @@ async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 60
             pass
 
 if __name__ == "__main__":
-    logger.info("\n" + "=" * 60)
     logger.info("  MTAPY DEMO STARTING...")
-    logger.info("=" * 60)
     
     # Setup argparse
     from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
