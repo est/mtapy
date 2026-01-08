@@ -38,7 +38,7 @@ macos = [
     "pyobjc-framework-CoreBluetooth>=9.0",
 ]
 all = [
-    "bleak>=0.21.0",
+    "bleak>=0.21.0"
 ]
 dev = [
     "pytest>=7.0.0",

@@ -215,11 +215,11 @@ class CoreBluetoothBLEProvider(BLEProvider):
         random_bytes = os.urandom(2)
         
         # Svc data 1 (000001ff...)
-        svc_data_1_uuid = CBUUID.UUIDWithString_("000001ff-0000-1000-8000-00805f9b34fb")
+        svc_data_1_uuid_str = "000001ff-0000-1000-8000-00805f9b34fb"
         svc_data_1_value = NSData.dataWithBytes_length_(random_bytes + b"\x00"*4, 6)
         
         # Svc data 2 (0000ffff...) - contains the name
-        svc_data_2_uuid = CBUUID.UUIDWithString_("0000ffff-0000-1000-8000-00805f9b34fb")
+        svc_data_2_uuid_str = "0000ffff-0000-1000-8000-00805f9b34fb"
         name_bytes = name.encode("utf-8")[:16].ljust(16, b"\x00")
         # Format: 8 bytes zero, 2 bytes random, 16 bytes name, 1 byte flag
         svc_data_2_raw = b"\x00"*8 + random_bytes + name_bytes + b"\x01"
@@ -228,10 +228,10 @@ class CoreBluetoothBLEProvider(BLEProvider):
         ad_data = {
             CBAdvertisementDataLocalNameKey: name,
             CBAdvertisementDataServiceUUIDsKey: [adv_svc_cbuuid],
-            # Using the literal string for ServiceDataKey as it might not be in the enum for peripherals
+            # Note: PyObjC requires the keys of kCBAdvDataServiceData to be strings, NOT CBUUIDs.
             "kCBAdvDataServiceData": {
-                svc_data_1_uuid: svc_data_1_value,
-                svc_data_2_uuid: svc_data_2_value,
+                svc_data_1_uuid_str: svc_data_1_value,
+                svc_data_2_uuid_str: svc_data_2_value,
             }
         }
         
@@ -275,13 +275,12 @@ class CoreBluetoothBLEProvider(BLEProvider):
         print("DEBUG: Initializing CBPeripheralManager...")
         
         # Try to get a background queue to avoid blocking the main thread
-        try:
-            from Foundation import dispatch_queue_create
-            queue = dispatch_queue_create(b"mtapy.ble.queue", None)
-            print("DEBUG: Using background dispatch queue")
-        except:
-            queue = None
-            print("DEBUG: Using main dispatch queue fallback (may hang if asyncio blocks)")
+        # Note: On macOS with asyncio, avoiding the main thread hang requires
+        # either a background queue (hard to create via PyObjC) or running
+        # the asyncio loop in a background thread (implemented in demo.py).
+        # We fallback to None (Main Queue) here.
+        queue = None
+        print("DEBUG: Using main dispatch queue (requires RunLoop in main thread)")
 
         self._peripheral_manager = CBPeripheralManager.alloc().initWithDelegate_queue_(
             self._delegate, queue

@@ -121,21 +121,94 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
         traceback.print_exc()
 
 
+async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
+    """Run both scanner and receiver concurrently."""
+    print("=" * 60)
+    print("  MTAPY DEMO - SCANNER & RECEIVER")
+    print("=" * 60)
+    print(f"1. Advertising as: '{device_name}' (Discoverable by Android)")
+    print("2. Scanning for nearby MTA devices...")
+    print("-" * 60)
+
+    # Start the receiver (Advertiser + GATT Server)
+    receiver_task = asyncio.create_task(listen_for_transfers(device_name, timeout))
+    
+    # Start the scanner loop
+    async def scanner_loop():
+        while True:
+            try:
+                # Scan for 10 seconds, then wait 5 seconds
+                await scan_for_devices(timeout=10.0)
+                await asyncio.sleep(5.0)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"Scanner error: {e}")
+                await asyncio.sleep(5.0)
+
+    scanner_task = asyncio.create_task(scanner_loop())
+
+    # Wait for receiver to finish (or scan loop to crash)
+    try:
+        await receiver_task
+    except asyncio.CancelledError:
+        pass
+    finally:
+        scanner_task.cancel()
+        try:
+            await scanner_task
+        except asyncio.CancelledError:
+            pass
+
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("  MTAPY DEMO STARTING...")
     print("=" * 60)
-    parser = argparse.ArgumentParser(description="mtapy macOS Demo")
-    parser.add_argument("--scan", action="store_true", help="Scan for nearby MTA devices instead of listening")
-    parser.add_argument("--name", type=str, default="MacBook Pro", help="Name to display when receiving")
-    parser.add_argument("--timeout", type=float, default=600.0, help="Timeout for the operation")
     
+    # Setup argparse
+    parser = argparse.ArgumentParser(description="mtapy macOS Demo")
+    parser.add_argument("--name", type=str, default="MacBook Pro", help="Name to display when receiving")
+    parser.add_argument("--timeout", type=float, default=3600.0, help="Timeout for the operation (default 1 hour)")
     args = parser.parse_args()
 
-    try:
-        if args.scan:
-            asyncio.run(scan_for_devices(timeout=10.0))
-        else:
-            asyncio.run(listen_for_transfers(device_name=args.name, timeout=args.timeout))
-    except KeyboardInterrupt:
-        print("\n\nStopped by user.")
+    # On macOS, we SHOULD run the asyncio loop in a background thread 
+    # so the Main Thread can pump the CFRunLoop for CoreBluetooth callbacks.
+    # This prevents the "Hang" issue without needing complex dispatch_queues.
+    import threading
+    use_runloop = False
+    if sys.platform == "darwin":
+        try:
+            from PyObjCTools import AppHelper
+            use_runloop = True
+        except ImportError:
+            print("Warning: PyObjCTools not found. Callbacks might hang.")
+    
+    if use_runloop:
+        print("DEBUG: Running asyncio in background thread + Main Thread RunLoop")
+        
+        loop = asyncio.new_event_loop()
+        
+        def bg_thread():
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(run_combined(device_name=args.name, timeout=args.timeout))
+            except Exception as e:
+                print(f"Background thread error: {e}")
+            finally:
+                # Stop the main loop when async work is done (e.g. timeout)
+                AppHelper.stopEventLoop()
+
+        t = threading.Thread(target=bg_thread, daemon=True)
+        t.start()
+        
+        try:
+            # This blocks until AppHelper.stopEventLoop() is called or Ctrl+C
+            AppHelper.runConsoleEventLoop(installInterrupt=True)
+        except KeyboardInterrupt:
+            print("\nStopped by user.")
+    else:
+        try:
+            # Standard mode (may hang on macOS without queue fix)
+            asyncio.run(run_combined(device_name=args.name, timeout=args.timeout))
+        except KeyboardInterrupt:
+            print("\n\nStopped by user.")
