@@ -138,7 +138,7 @@ class BleakBLEProvider(BLEProvider):
         # is started on many bleak backends, or requires platform-specific steps.
         # For now, we set the flag.
         self._advertising = True
-        logger.debug(f"Starting advertising as '{name}' with service {service_uuid}")
+        logger.debug("Starting advertising as '%s' with service %s", name, service_uuid)
 
     async def stop_advertising(self) -> None:
         """Stop BLE advertising."""

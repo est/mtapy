@@ -9,10 +9,12 @@ import logging
 # Configure logger
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s %(levelname)s %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)
-    ]
+    ],
+    datefmt='%Y%m%d %H%M%S',
+
 )
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ from mtapy import get_macos_ble_provider, MTAReceiver, SendRequest, P2pInfo
 
 async def scan_for_devices(timeout: float = 10.0):
     """Scan for nearby MTA devices."""
-    logger.info(f"[SCAN] 🔍 Scanning for {timeout}s...")
+    logger.info("[SCAN] 🔍 Scanning for %ss...", timeout)
     ble = get_macos_ble_provider()
     found_any = False
 
@@ -31,7 +33,7 @@ async def scan_for_devices(timeout: float = 10.0):
         nonlocal found_any
         found_any = True
         is_5ghz = "5GHz" if device.supports_5ghz else "2.4GHz"
-        logger.info(f"[SCAN] 📱 {device.rssi}dBm | {device.name:<20} | {device.address} | {is_5ghz}")
+        logger.info("[SCAN] 📱 %sdBm | %-20s | %s | %s", device.rssi, device.name, device.address, is_5ghz)
 
     try:
         await ble.start_scan(on_device_found, timeout=timeout)
@@ -46,21 +48,21 @@ async def scan_for_devices(timeout: float = 10.0):
 
 async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Listen for incoming file transfers."""
-    logger.info(f"[RECV] 📡 Advertising as '{device_name}' | Waiting for Android...")
+    logger.info("[RECV] 📡 Advertising as '%s' | Waiting for Android...", device_name)
 
     ble = get_macos_ble_provider()
     output_dir = Path("./received_files")
     output_dir.mkdir(exist_ok=True)
 
     async def on_request(request: SendRequest) -> bool:
-        logger.info(f"[RECV] 📥 {request.sender_name} -> {request.file_name} ({request.file_count} files, {request.total_size} bytes) | Auto-accepting...")
+        logger.info("[RECV] 📥 %s -> %s (%s files, %s bytes) | Auto-accepting...", request.sender_name, request.file_name, request.file_count, request.total_size)
         return True
 
     async def on_text(text: str):
-        logger.info(f"[TEXT] 💬 {text}")
+        logger.info("[TEXT] 💬 %s", text)
 
     async def on_p2p(p2p: P2pInfo):
-        logger.info(f"[WIFI] 📶 Connect to SSID: '{p2p.ssid}' | PSK: '{p2p.psk}'")
+        logger.info("[WIFI] 📶 Connect to SSID: '%s' | PSK: '%s'", p2p.ssid, p2p.psk)
         
         if args.auto_connect:
             logger.info("[WIFI] 🤖 Auto-connecting...")
@@ -92,9 +94,9 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
     )
     
     if files:
-        logger.info(f"[RECV] ✅ Success! {len(files)} file(s) received.")
+        logger.info("[RECV] ✅ Success! %s file(s) received.", len(files))
         for f in files:
-            logger.info(f"[FILE] 💾 {f.name} ({f.size} bytes) -> {f.path}")
+            logger.info("[FILE] 💾 %s (%s bytes) -> %s", f.name, f.size, f.path)
     else:
         logger.info("[RECV] ⏹️  Session ended.")
 
@@ -104,7 +106,7 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
 async def run_combined(device_name: str = "MacBook (mtapy)", timeout: float = 600.0):
     """Run both scanner and receiver concurrently."""
     logger.info("=" * 60)
-    logger.info(f"  MTAPY DEMO | Name: {device_name} | Timeout: {timeout}s")
+    logger.info("  MTAPY DEMO | Name: %s | Timeout: %ss", device_name, timeout)
     logger.info("=" * 60)
 
     # Start the receiver (Advertiser + GATT Server)
@@ -177,7 +179,7 @@ if __name__ == "__main__":
                 # Store exception for re-raising in main thread
                 bg_exception_container.append(e)
                 # Print immediately so user sees it even if main loop is stuck
-                logger.error(f"[ERROR] Background thread crashed: {e}")
+                logger.error("[ERROR] Background thread crashed: %s", e)
             finally:
                 # Stop the main loop when async work is done (e.g. timeout or crash)
                 AppHelper.stopEventLoop()
@@ -210,7 +212,7 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            logger.error(f"[MAIN] RunLoop error: {e}")
+            logger.error("[MAIN] RunLoop error: %s", e)
 
         # Check for background exception and re-raise if present (for pdb)
         if bg_exception_container:

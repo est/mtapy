@@ -36,7 +36,7 @@ def get_wifi_interface() -> str:
                         return match.group(1)
                         
     except Exception as e:
-        logger.warning(f"[WIFI] ⚠️  Could not detect Wi-Fi interface: {e}")
+        logger.warning("[WIFI] ⚠️  Could not detect Wi-Fi interface: %s", e)
         
     return "en0" # Default fallback
 
@@ -51,7 +51,7 @@ def connect_to_wifi(ssid: str, password: str) -> bool:
         return False
 
     interface = get_wifi_interface()
-    logger.info(f"[WIFI] 🔄 Connecting to '{ssid}' on {interface}...")
+    logger.info("[WIFI] 🔄 Connecting to '%s' on %s...", ssid, interface)
     
     try:
         # networksetup -setairportnetwork <device> <network> <password>
@@ -66,17 +66,17 @@ def connect_to_wifi(ssid: str, password: str) -> bool:
         
         # Check for known failure strings
         if "Could not find network" in output or "Error" in output:
-            logger.error(f"[WIFI] ❌ {output.strip()}")
+            logger.error("[WIFI] ❌ %s", output.strip())
             return False
             
         if result.returncode != 0:
-            logger.error(f"[WIFI] ❌ Command failed: {output.strip()}")
+            logger.error("[WIFI] ❌ Command failed: %s", output.strip())
             return False
 
-        logger.info(f"[WIFI] ✅ Connected to '{ssid}'")
+        logger.info("[WIFI] ✅ Connected to '%s'", ssid)
         # Give it a moment to acquire IP
         time.sleep(2.0)
         return True
     except Exception as e:
-        logger.error(f"[WIFI] ❌ Failed to connect: {e}")
+        logger.error("[WIFI] ❌ Failed to connect: %s", e)
         return False

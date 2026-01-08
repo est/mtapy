@@ -70,13 +70,13 @@ class _PeripheralManagerDelegate(NSObject):
     # Called when CBPeripheralManager state changes
     def peripheralManagerDidUpdateState_(self, peripheral):
         state = peripheral.state()
-        logger.debug(f"Peripheral manager state changed: {state}")
+        logger.debug("Peripheral manager state changed: %s", state)
         if state == CBPeripheralManagerStatePoweredOn:
             self._powered_on = True
             logger.debug("Bluetooth is POWERED ON")
         else:
             self._powered_on = False
-            logger.debug(f"Bluetooth is NOT powered on (state: {state})")
+            logger.debug("Bluetooth is NOT powered on (state: %s)", state)
         self._loop.call_soon_threadsafe(self._state_event.set)
 
     # Called when a central requests to read a characteristic
@@ -91,7 +91,7 @@ class _PeripheralManagerDelegate(NSObject):
                     request.setValue_(NSData.dataWithBytes_length_(data, len(data)))
                     peripheral.respondToRequest_withResult_(request, CBATTErrorSuccess)
                 except Exception as e:
-                    logger.error(f"GATT read error: {e}")
+                    logger.error("GATT read error: %s", e)
                     peripheral.respondToRequest_withResult_(request, 1)  # Error
             
             asyncio.run_coroutine_threadsafe(handle_read(), self._loop)
@@ -123,14 +123,14 @@ class _PeripheralManagerDelegate(NSObject):
     # Called when service was added
     def peripheralManager_didAddService_error_(self, peripheral, service, error):
         if error:
-            logger.debug(f"Failed to add service: {error}")
+            logger.debug("Failed to add service: %s", error)
         else:
-            logger.debug(f"Service added successfully: {service.UUID().UUIDString()}")
+            logger.debug("Service added successfully: %s", service.UUID().UUIDString())
 
     # Called when advertising started
     def peripheralManagerDidStartAdvertising_error_(self, peripheral, error):
         if error:
-            logger.debug(f"Failed to start advertising: {error}")
+            logger.debug("Failed to start advertising: %s", error)
         else:
             logger.debug("Started advertising successfully")
 
@@ -239,7 +239,7 @@ class CoreBluetoothBLEProvider(BLEProvider):
             }
         }
         
-        logger.debug(f"Starting advertising with name='{name}' and MTA service data")
+        logger.debug("Starting advertising with name='%s' and MTA service data", name)
         self._peripheral_manager.startAdvertising_(ad_data)
         self._advertising = True
 

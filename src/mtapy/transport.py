@@ -112,7 +112,7 @@ class MTAReceiver:
         # Setup GATT callbacks
         async def on_read(uuid: str) -> bytes:
             if uuid.lower() == str(CHAR_STATUS_UUID).lower():
-                logger.info(f"[BLE] A device is probing our status...")
+                logger.info("[BLE] A device is probing our status...")
                 # Return DeviceInfo with our public key
                 info = DeviceInfo(
                     state=0,
@@ -130,7 +130,7 @@ class MTAReceiver:
                     raw_json = value.decode("utf-8")
                 else:
                     if json_start > 0:
-                        logger.warning(f"[BLE] ⚠️  Skipping {json_start} preamble bytes: {value[:json_start].hex()}")
+                        logger.warning("[BLE] ⚠️  Skipping %d preamble bytes: %s", json_start, value[:json_start].hex())
                     
                     # Slice from where '{' starts
                     raw_json = value[json_start:].decode("utf-8")
@@ -169,12 +169,12 @@ class MTAReceiver:
             service_uuid=str(ADV_SERVICE_UUID),
         )
         
-        logger.info(f"Receiver '{device_name}' is listening...")
+        logger.info("Receiver '%s' is listening...", device_name)
         
         try:
             # 3. Wait for P2P info
             p2p_info = await asyncio.wait_for(p2p_received, timeout=timeout)
-            logger.info(f"Received P2P info: SSID={p2p_info.ssid}, MAC={p2p_info.mac}")
+            logger.info("Received P2P info: SSID=%s, MAC=%s", p2p_info.ssid, p2p_info.mac)
             
             # 4. Stop advertising while transferring
             await ble.stop_advertising()
