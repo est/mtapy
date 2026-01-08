@@ -122,6 +122,9 @@ async def listen_for_transfers(device_name: str = "MacBook (mtapy)", timeout: fl
 
 
 if __name__ == "__main__":
+    print("\n" + "=" * 60)
+    print("  MTAPY DEMO STARTING...")
+    print("=" * 60)
     parser = argparse.ArgumentParser(description="mtapy macOS Demo")
     parser.add_argument("--scan", action="store_true", help="Scan for nearby MTA devices instead of listening")
     parser.add_argument("--name", type=str, default="MacBook Pro", help="Name to display when receiving")

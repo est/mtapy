@@ -66,10 +66,14 @@ class _PeripheralManagerDelegate(NSObject):
 
     # Called when CBPeripheralManager state changes
     def peripheralManagerDidUpdateState_(self, peripheral):
-        if peripheral.state() == CBPeripheralManagerStatePoweredOn:
+        state = peripheral.state()
+        print(f"DEBUG: Peripheral manager state changed: {state}")
+        if state == CBPeripheralManagerStatePoweredOn:
             self._powered_on = True
+            print("DEBUG: Bluetooth is POWERED ON")
         else:
             self._powered_on = False
+            print(f"DEBUG: Bluetooth is NOT powered on (state: {state})")
         self._loop.call_soon_threadsafe(self._state_event.set)
 
     # Called when a central requests to read a characteristic
@@ -115,16 +119,16 @@ class _PeripheralManagerDelegate(NSObject):
     # Called when service was added
     def peripheralManager_didAddService_error_(self, peripheral, service, error):
         if error:
-            print(f"Failed to add service: {error}")
+            print(f"DEBUG: Failed to add service: {error}")
         else:
-            print(f"Service added: {service.UUID().UUIDString()}")
+            print(f"DEBUG: Service added successfully: {service.UUID().UUIDString()}")
 
     # Called when advertising started
     def peripheralManagerDidStartAdvertising_error_(self, peripheral, error):
         if error:
-            print(f"Failed to start advertising: {error}")
+            print(f"DEBUG: Failed to start advertising: {error}")
         else:
-            print("Started advertising")
+            print("DEBUG: Started advertising successfully")
 
 
 class CoreBluetoothBLEProvider(BLEProvider):
@@ -199,12 +203,39 @@ class CoreBluetoothBLEProvider(BLEProvider):
             raise RuntimeError("Call setup_gatt_server before start_advertising")
         
         # Build advertisement data
-        service_cbuuid = CBUUID.UUIDWithString_(service_uuid)
+        from ..constants import ADV_SERVICE_UUID
+        adv_svc_cbuuid = CBUUID.UUIDWithString_(str(ADV_SERVICE_UUID))
+        
+        # MTA specifically wants these service data segments for discovery
+        # segment 1: 000001ff... -> 6 bytes (random)
+        # segment 2: 0000ffff... -> 27 bytes (name and flags)
+        
+        # Generate some random bytes for the discovery segments
+        import os
+        random_bytes = os.urandom(2)
+        
+        # Svc data 1 (000001ff...)
+        svc_data_1_uuid = CBUUID.UUIDWithString_("000001ff-0000-1000-8000-00805f9b34fb")
+        svc_data_1_value = NSData.dataWithBytes_length_(random_bytes + b"\x00"*4, 6)
+        
+        # Svc data 2 (0000ffff...) - contains the name
+        svc_data_2_uuid = CBUUID.UUIDWithString_("0000ffff-0000-1000-8000-00805f9b34fb")
+        name_bytes = name.encode("utf-8")[:16].ljust(16, b"\x00")
+        # Format: 8 bytes zero, 2 bytes random, 16 bytes name, 1 byte flag
+        svc_data_2_raw = b"\x00"*8 + random_bytes + name_bytes + b"\x01"
+        svc_data_2_value = NSData.dataWithBytes_length_(svc_data_2_raw, 27)
+
         ad_data = {
             CBAdvertisementDataLocalNameKey: name,
-            CBAdvertisementDataServiceUUIDsKey: [service_cbuuid],
+            CBAdvertisementDataServiceUUIDsKey: [adv_svc_cbuuid],
+            # Using the literal string for ServiceDataKey as it might not be in the enum for peripherals
+            "kCBAdvDataServiceData": {
+                svc_data_1_uuid: svc_data_1_value,
+                svc_data_2_uuid: svc_data_2_value,
+            }
         }
         
+        print(f"DEBUG: Starting advertising with name='{name}' and MTA service data")
         self._peripheral_manager.startAdvertising_(ad_data)
         self._advertising = True
 
@@ -241,11 +272,23 @@ class CoreBluetoothBLEProvider(BLEProvider):
         )
         
         # Create peripheral manager
+        print("DEBUG: Initializing CBPeripheralManager...")
+        
+        # Try to get a background queue to avoid blocking the main thread
+        try:
+            from Foundation import dispatch_queue_create
+            queue = dispatch_queue_create(b"mtapy.ble.queue", None)
+            print("DEBUG: Using background dispatch queue")
+        except:
+            queue = None
+            print("DEBUG: Using main dispatch queue fallback (may hang if asyncio blocks)")
+
         self._peripheral_manager = CBPeripheralManager.alloc().initWithDelegate_queue_(
-            self._delegate, None
+            self._delegate, queue
         )
         
         # Wait for Bluetooth to power on
+        print("DEBUG: Waiting for Bluetooth to power on...")
         await self._delegate._state_event.wait()
         if not self._delegate._powered_on:
             raise RuntimeError("Bluetooth is not powered on")
