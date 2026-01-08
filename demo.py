@@ -148,25 +148,58 @@ if __name__ == "__main__":
         print("DEBUG: Running asyncio in background thread + Main Thread RunLoop")
         
         loop = asyncio.new_event_loop()
+        # Use a list to store exception, avoiding nonlocal issue in some contexts
+        bg_exception_container = []
         
         def bg_thread():
             asyncio.set_event_loop(loop)
             try:
                 loop.run_until_complete(run_combined(device_name=args.name, timeout=args.timeout))
+            except asyncio.CancelledError:
+                pass  # Graceful exit
+            except RuntimeError:
+                pass  # Loop stopped
             except Exception as e:
-                print(f"Background thread error: {e}")
+                # Store exception for re-raising in main thread
+                bg_exception_container.append(e)
+                # Print immediately so user sees it even if main loop is stuck
+                print(f"\n[ERROR] Background thread crashed: {e}")
             finally:
-                # Stop the main loop when async work is done (e.g. timeout)
+                # Stop the main loop when async work is done (e.g. timeout or crash)
                 AppHelper.stopEventLoop()
 
         t = threading.Thread(target=bg_thread, daemon=True)
         t.start()
         
+        # Install a Python signal handler to catch Ctrl+C ensuring AppHelper stops
+        import signal
+        def handle_sigint(signum, frame):
+            print("\n[SIGINT] Stopping...", file=sys.stderr)
+            AppHelper.stopEventLoop()
+            
+            # Cancel all tasks on the background loop to unblock run_until_complete
+            def cancel_all():
+                for task in asyncio.all_tasks(loop):
+                    task.cancel()
+            
+            loop.call_soon_threadsafe(cancel_all)
+            
+        signal.signal(signal.SIGINT, handle_sigint)
+
         try:
-            # This blocks until AppHelper.stopEventLoop() is called or Ctrl+C
-            AppHelper.runConsoleEventLoop(installInterrupt=True)
+            # this blocks until AppHelper.stopEventLoop() is called
+            # installInterrupt=False because we use our own signal handler
+            AppHelper.runConsoleEventLoop(installInterrupt=False)
         except KeyboardInterrupt:
-            print("\nStopped by user.")
+            pass
+        except Exception as e:
+            print(f"[MAIN] RunLoop error: {e}")
+
+        # Check for background exception and re-raise if present (for pdb)
+        if bg_exception_container:
+            print("\nRe-raising background exception for pdb...")
+            raise bg_exception_container[0]
+
     else:
         try:
             # Standard mode (may hang on macOS without queue fix)
