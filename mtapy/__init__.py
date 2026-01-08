@@ -47,6 +47,7 @@ from .sender import (
     TransferRejected,
     SenderProtocolError,
 )
+from .transport import MTAReceiver, MTASender, ReceivedFile
 from .constants import (
     ADV_SERVICE_UUID,
     SERVICE_UUID,
@@ -114,6 +115,14 @@ __all__ = [
     "STATUS_OK",
     "STATUS_ERROR",
     "STATUS_USER_REFUSE",
+    # Transport
+    "MTAReceiver",
+    "MTASender",
+    "ReceivedFile",
+    # Providers
+    "get_crypto_provider",
+    "get_ble_provider",
+    "get_wifi_p2p_provider",
 ]
 
 

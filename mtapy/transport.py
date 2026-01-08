@@ -27,6 +27,10 @@ from .receiver import (
 from .sender import SenderProtocol, SenderState, FileSpec
 from .interfaces import CryptoProvider, BLEProvider, WiFiP2PProvider
 from .crypto import get_default_crypto_provider
+from .ble import get_default_ble_provider
+from .constants import (
+    ADV_SERVICE_UUID, SERVICE_UUID, CHAR_STATUS_UUID, CHAR_P2P_UUID,
+)
 
 
 @dataclass
@@ -82,6 +86,111 @@ class MTAReceiver:
         self.crypto = crypto_provider or get_default_crypto_provider()
         
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    async def listen(
+        self,
+        device_name: str = "MTA Receiver",
+        ble_provider: Optional[BLEProvider] = None,
+        on_p2p: Optional[Callable[[P2pInfo], Awaitable[None]]] = None,
+        timeout: float = 300.0,
+    ) -> List[ReceivedFile]:
+        """
+        Listen for incoming file transfers.
+        
+        This will:
+        1. Start BLE advertising and GATT server
+        2. Wait for a sender to write P2P credentials
+        3. Connect to the sender and receive files
+        
+        Args:
+            device_name: Name to display to sender
+            ble_provider: Optional BLE provider
+            on_p2p: Optional async callback when P2P credentials are received.
+                   If provided, the receiver will wait for this callback to complete
+                   before attempting to connect to the sender.
+            timeout: How long to wait for a connection in seconds
+            
+        Returns:
+            List of received files.
+        """
+        ble = ble_provider or get_default_ble_provider()
+        
+        # State to capture received P2P info
+        p2p_received = asyncio.Future()
+        
+        # Setup GATT callbacks
+        async def on_read(uuid: str) -> bytes:
+            if uuid.lower() == str(CHAR_STATUS_UUID).lower():
+                # Return DeviceInfo with our public key
+                info = DeviceInfo(
+                    state=0,
+                    key=self.crypto.get_public_key(),
+                    mac="00:00:00:00:00:00", # Placeholder MAC
+                )
+                return info.to_json().encode("utf-8")
+            return b""
+
+        async def on_write(uuid: str, value: bytes) -> None:
+            if uuid.lower() == str(CHAR_P2P_UUID).lower():
+                # Received P2pInfo
+                try:
+                    raw_json = value.decode("utf-8")
+                    p2p = P2pInfo.from_json(raw_json)
+                    
+                    # Decrypt if key is present
+                    if p2p.key:
+                        cipher = self.crypto.derive_session_cipher(p2p.key)
+                        p2p = P2pInfo(
+                            id=p2p.id,
+                            ssid=cipher.decrypt(p2p.ssid),
+                            psk=cipher.decrypt(p2p.psk),
+                            mac=cipher.decrypt(p2p.mac),
+                            port=p2p.port,
+                            key=None,
+                        )
+                    
+                    if not p2p_received.done():
+                        p2p_received.set_result(p2p)
+                except Exception as e:
+                    print(f"Error parsing P2P info: {e}")
+
+        # 1. Setup GATT Server
+        await ble.setup_gatt_server(
+            service_uuid=str(SERVICE_UUID),
+            characteristics={
+                str(CHAR_STATUS_UUID): (True, False),
+                str(CHAR_P2P_UUID): (False, True),
+            },
+            on_read=on_read,
+            on_write=on_write,
+        )
+        
+        # 2. Start Advertising
+        await ble.start_advertising(
+            name=device_name,
+            service_uuid=str(ADV_SERVICE_UUID),
+        )
+        
+        print(f"Receiver '{device_name}' is listening...")
+        
+        try:
+            # 3. Wait for P2P info
+            p2p_info = await asyncio.wait_for(p2p_received, timeout=timeout)
+            print(f"Received P2P info: SSID={p2p_info.ssid}, MAC={p2p_info.mac}")
+            
+            # 4. Stop advertising while transferring
+            await ble.stop_advertising()
+            
+            # 4.5. Callback for P2P info (e.g. to show WiFi credentials to user)
+            if on_p2p:
+                await on_p2p(p2p_info)
+            
+            # 5. Connect and receive
+            return await self.receive_from(p2p_info.mac, p2p_info.port)
+            
+        finally:
+            await ble.stop_advertising()
+            await ble.stop_gatt_server()
 
     async def receive_from(
         self,

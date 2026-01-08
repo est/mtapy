@@ -7,8 +7,7 @@ BLE stacks, or WiFi P2P implementations.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, List, AsyncIterator, Callable, Awaitable
-import asyncio
+from typing import Optional, Callable, Awaitable, Tuple, Dict
 
 from .models import DeviceInfo, P2pInfo
 
@@ -90,6 +89,48 @@ class BLEProvider(ABC):
     @abstractmethod
     async def stop_scan(self) -> None:
         """Stop scanning for devices."""
+        pass
+
+    async def start_advertising(
+        self,
+        name: str,
+        service_uuid: str,
+        service_data: Optional[Dict[str, bytes]] = None,
+    ) -> None:
+        """
+        Start advertising as an MTA device.
+        
+        Args:
+            name: Device name to advertise
+            service_uuid: Primary service UUID
+            service_data: Optional dictionary of UUID string to bytes
+        """
+        pass
+
+    async def stop_advertising(self) -> None:
+        """Stop BLE advertising."""
+        pass
+
+    async def setup_gatt_server(
+        self,
+        service_uuid: str,
+        characteristics: Dict[str, Tuple[bool, bool]], # UUID -> (readable, writable)
+        on_read: Callable[[str], Awaitable[bytes]], # uuid -> data
+        on_write: Callable[[str, bytes], Awaitable[None]], # uuid, data -> None
+    ) -> None:
+        """
+        Setup GATT server with specified characteristics.
+        
+        Args:
+            service_uuid: Service UUID to host
+            characteristics: Dict mapping characteristic UUIDs to (readable, writable)
+            on_read: Async callback for read requests
+            on_write: Async callback for write requests
+        """
+        pass
+
+    async def stop_gatt_server(self) -> None:
+        """Stop the GATT server."""
         pass
 
     @abstractmethod

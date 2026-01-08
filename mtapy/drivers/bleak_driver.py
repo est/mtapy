@@ -6,12 +6,12 @@ Provides device discovery and GATT operations for Windows/macOS/Linux.
 
 import asyncio
 import struct
-from typing import Callable, Awaitable, Optional, List
+from typing import Optional, Callable, Awaitable, List, Tuple, Dict
 import json
 
-from .interfaces import BLEProvider, BLEConnection, DiscoveredDevice
-from .models import DeviceInfo, P2pInfo
-from .constants import ADV_SERVICE_UUID, SERVICE_UUID, CHAR_STATUS_UUID, CHAR_P2P_UUID
+from ..interfaces import BLEProvider, BLEConnection, DiscoveredDevice
+from ..models import DeviceInfo, P2pInfo
+from ..constants import ADV_SERVICE_UUID, SERVICE_UUID, CHAR_STATUS_UUID, CHAR_P2P_UUID
 
 
 def parse_scan_response(data: bytes) -> tuple[str, Optional[str], bool]:
@@ -56,6 +56,10 @@ class BleakBLEProvider(BLEProvider):
     def __init__(self):
         self._scanner = None
         self._scanning = False
+        self._gatt_server = None
+        self._advertising = False
+        self._on_read_callback = None
+        self._on_write_callback = None
 
     async def start_scan(
         self,
@@ -115,6 +119,54 @@ class BleakBLEProvider(BLEProvider):
             await self._scanner.stop()
             self._scanning = False
 
+    async def start_advertising(
+        self,
+        name: str,
+        service_uuid: str,
+        service_data: Optional[Dict[str, bytes]] = None,
+    ) -> None:
+        """
+        Start advertising as an MTA device.
+        
+        Note: Bleak 0.21+ supports GATT server but advertising support varies.
+        On macOS, we use the device name and primary service UUID.
+        """
+        # Advertising is often started automatically when the GATT server
+        # is started on many bleak backends, or requires platform-specific steps.
+        # For now, we set the flag.
+        self._advertising = True
+        print(f"DEBUG: Starting advertising as '{name}' with service {service_uuid}")
+
+    async def stop_advertising(self) -> None:
+        """Stop BLE advertising."""
+        self._advertising = False
+
+    async def setup_gatt_server(
+        self,
+        service_uuid: str,
+        characteristics: Dict[str, Tuple[bool, bool]],
+        on_read: Callable[[str], Awaitable[bytes]],
+        on_write: Callable[[str, bytes], Awaitable[None]],
+    ) -> None:
+        """
+        Setup GATT server with specified characteristics.
+        
+        WARNING: Bleak is a BLE CLIENT library and does not support
+        running as a BLE peripheral (GATT server).
+        
+        On macOS, use the pyobjc-based CoreBluetooth wrapper.
+        On Linux, use bluez D-Bus APIs directly.
+        """
+        raise NotImplementedError(
+            "Bleak does not support GATT server functionality. "
+            "To receive files, you need a platform-specific BLE peripheral implementation. "
+            "For macOS, consider using pyobjc with CoreBluetooth directly."
+        )
+
+    async def stop_gatt_server(self) -> None:
+        """Stop the GATT server."""
+        pass  # No-op since GATT server isn't supported
+
     async def connect(self, address: str) -> "BLEConnection":
         """Connect to a device by address."""
         from bleak import BleakClient
@@ -146,5 +198,20 @@ class BleakBLEConnection(BLEConnection):
 
 
 def get_default_ble_provider() -> BLEProvider:
-    """Get the default BLE provider (bleak-based)."""
+    """
+    Get the default BLE provider for the current platform.
+    
+    On macOS, returns CoreBluetoothBLEProvider for GATT server support.
+    On other platforms, returns BleakBLEProvider (client-only).
+    """
+    import sys
+    
+    if sys.platform == "darwin":
+        try:
+            from .macos import CoreBluetoothBLEProvider
+            return CoreBluetoothBLEProvider()
+        except ImportError:
+            # pyobjc not installed, fall back to bleak
+            pass
+    
     return BleakBLEProvider()
